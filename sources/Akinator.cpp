@@ -2,7 +2,12 @@
 #include <cstring>
 #include <cassert>
 #include <algorithm>
-#include <experimental/filesystem>
+#include <zconf.h>
+
+struct PropertyNode {
+    size_t index;
+    bool property;
+};
 
 static const size_t kNodesReserve = 16;
 static const size_t kStringReserve = 128;
@@ -11,7 +16,7 @@ static constexpr std::string_view kUnknown = "unknown";
 void Akinator::ReadFile(const std::string& filename) {
   tree_.resize(0);
   nodes_strings_.resize(0);
-  if (std::experimental::filesystem::exists(filename)) {
+  if (access(filename.c_str(), R_OK)) {
     tree_.reserve(kNodesReserve);
     nodes_strings_.reserve(kStringReserve);
     CreateRoot();
@@ -77,13 +82,12 @@ void Akinator::InteractiveMode() {
                 "write tree\n"
                 "show tree\n"
                 "Write one to start (or exit):");
-    while (std::isspace(std::cin.peek())) std::cin.get();
-    std::getline(std::cin, input_buffer_);
+    ReadLine();
 
     if        (input_buffer_ == "traversal") {
       TraversalMode();
     } else if (input_buffer_ == "difference") {
-
+      DifferenceMode();
     } else if (input_buffer_ == "write tree") {
 
     } else if (input_buffer_ == "show tree") {
@@ -98,13 +102,12 @@ void Akinator::TraversalMode() {
   size_t current_node = 0;
   while (true) {
     if (!IsLeaf(tree_.at(current_node))) {
-      std::printf("%.*s? (yes or no):", tree_.at(current_node).string.size(),
+      std::printf("%.*s? (y or n):", tree_.at(current_node).string.size(),
                                    tree_.at(current_node).string.data());
-      while (std::isspace(std::cin.peek())) std::cin.get();
-      std::getline(std::cin, input_buffer_);
-      if (input_buffer_ == "y") {
+      ReadLine();
+      if (input_buffer_ == "yes") {
         current_node = tree_.at(current_node).left;
-      } else if (input_buffer_ == "n") {
+      } else if (input_buffer_ == "no") {
         current_node = tree_.at(current_node).right;
       } else {
         std::printf("Please, answer y or n");
@@ -114,16 +117,14 @@ void Akinator::TraversalMode() {
 
     std::printf("Is it %.*s?\n", tree_.at(current_node).string.size(),
                                  tree_.at(current_node).string.data());
-    std::fflush(stdout);
-    while (std::isspace(std::cin.peek())) std::cin.get();
-    std::getline(std::cin, input_buffer_);
+    ReadLine();
     if (input_buffer_ == "y") {
       return;
     } else if (input_buffer_ == "n") {
       UpdateTree(current_node);
       return;
     } else {
-      std::cout << "Please, answer y or n\n";
+      std::printf("Please, answer y or n\n");
       continue;
     }
   }
@@ -133,7 +134,7 @@ void Akinator::DifferenceMode() {
   auto find_node = [this]() {
     auto it = ReadAndFindCharacter();
     if (it == tree_.end())
-      printf("there is no this character\n");
+      std::printf("there is no this character\n");
     return it;
   };
 
@@ -141,28 +142,28 @@ void Akinator::DifferenceMode() {
   auto first_node_it = find_node();
   if (first_node_it == tree_.cend()) return;
   size_t first_node = std::distance(tree_.cbegin(), first_node_it);
+
   std::printf("Enter second character:");
   auto second_node_it = find_node();
   if (second_node_it == tree_.cend()) return;
-  size_t second_node = std::distance(tree_.cbegin(), first_node_it);
-  size_t first_depth = NodeDepth(first_node);
-  size_t second_depth = NodeDepth(second_node);
-  bool second_deeper = false;
-  if (second_depth > first_depth) {
-    second_deeper = true;
-    std::swap(first_depth, second_depth);
-    std::swap(first_node, second_node);
-  }
-  for (size_t i = 0; i < first_depth - second_depth; ++i) {
-    first_node = tree_.at(first_node).parent;
-  }
-  if (second_deeper) std::swap(first_node, second_node);
-  while (first_node != second_node) {
-    first_node  = tree_.at(first_node).parent;
-    second_node = tree_.at(second_node).parent;
-  }
+  size_t second_node = std::distance(tree_.cbegin(), second_node_it);
 
+  size_t lca = LCA(first_node, second_node);
 
+  std::vector<PropertyNode> properties_stack;
+  properties_stack.reserve(std::max(first_node,second_node));
+
+  CollectProperties(lca, 0, properties_stack);
+  std::printf("Common properties: ");
+  PrintProperties(properties_stack);
+
+  CollectProperties(first_node, lca, properties_stack);
+  std::printf("First characters' unique properties: ");
+  PrintProperties(properties_stack);
+
+  CollectProperties(second_node, lca, properties_stack);
+  std::printf("Second characters' unique properties: ");
+  PrintProperties(properties_stack);
 }
 
 void Akinator::Reserve(std::FILE* file) {
@@ -247,8 +248,7 @@ void Akinator::BuildTree(std::FILE* file) {
 }
 
 std::vector<Akinator::Node>::const_iterator Akinator::ReadAndFindCharacter() {
-  while (std::isspace(std::cin.peek())) std::cin.get();
-  std::getline(std::cin, input_buffer_);
+  ReadLine();
   return std::find_if(tree_.begin(), tree_.end(),
                       [this](const Node& node) {
     return std::string_view(input_buffer_) == node.string &&
@@ -265,6 +265,40 @@ size_t Akinator::NodeDepth(size_t node) const {
   return depth;
 }
 
+size_t Akinator::LCA(size_t first_node, size_t second_node) const {
+  size_t first_depth = NodeDepth(first_node);
+  size_t second_depth = NodeDepth(second_node);
+  bool second_deeper = false;
+  if (second_depth > first_depth) {
+    second_deeper = true;
+    std::swap(first_depth, second_depth);
+    std::swap(first_node, second_node);
+  }
+  for (size_t i = 0; i < first_depth - second_depth; ++i) {
+    first_node = tree_.at(first_node).parent;
+  }
+  if (second_deeper) std::swap(first_node, second_node);
+  while (first_node != second_node) {
+    first_node  = tree_.at(first_node).parent;
+    second_node = tree_.at(second_node).parent;
+  }
+  return first_node;
+}
+
+void
+Akinator::PrintProperties(std::vector<PropertyNode>& stack) const {
+  while (!stack.empty()) {
+    if (!stack.back().property)
+      std::printf("NOT ");
+    assert(!tree_.at(stack.back().index).string.empty());
+    std::printf("%.*s; ", tree_.at(stack.back().index).string.size() - 1,
+                          tree_.at(stack.back().index).string.data());
+    stack.pop_back();
+  }
+  std::putchar('\n');
+  std::fflush(stdout);
+}
+
 void Akinator::CreateRoot() {
   nodes_strings_ += kUnknown;
   tree_.push_back({std::string_view(nodes_strings_).
@@ -277,10 +311,9 @@ bool Akinator::IsLeaf(const Akinator::Node& node) const {
 }
 
 void Akinator::UpdateTree(size_t current_node) {
-  printf("Please, write its correct attribute:");
+  std::printf("Please, write its correct attribute:");
   size_t begin = nodes_strings_.size();
-  while (std::isspace(std::cin.peek())) std::cin.get();
-  std::getline(std::cin, input_buffer_);
+  ReadLine();
   nodes_strings_ += input_buffer_;
   nodes_strings_.push_back('?');
   (tree_.at(tree_.at(current_node).parent).left == current_node ?
@@ -292,12 +325,33 @@ void Akinator::UpdateTree(size_t current_node) {
                    tree_.at(current_node).parent});
   tree_.at(current_node).parent = tree_.size() - 1;
   begin = nodes_strings_.size();
-  printf("Please, write your character:");
-  while (std::isspace(std::cin.peek())) std::cin.get();
-  std::getline(std::cin, input_buffer_);
+  std::printf("Please, write your character:");
+  ReadLine();
   nodes_strings_ += input_buffer_;
   tree_.push_back({static_cast<std::string_view>(nodes_strings_).
                    substr(begin, input_buffer_.size()),
                    0, 0,
                    tree_.size() - 1});
+}
+
+void Akinator::ReadLine() {
+  std::fflush(stdout);
+  while (std::isspace(std::cin.peek())) std::cin.get();
+  std::getline(std::cin, input_buffer_);
+}
+
+void Akinator::CollectProperties(size_t from,
+                                size_t to,
+                                std::vector<PropertyNode>& stack) const {
+  auto is_true_property = [this, &stack](size_t index) {
+    return tree_.at(tree_.at(index).parent).left == index;
+  };
+
+  stack.resize(0);
+  if (from != to)
+    stack.push_back({tree_.at(from).parent, is_true_property(from)});
+  while (stack.back().index != to) {
+    stack.push_back({tree_.at(stack.back().index).parent,
+                     is_true_property(stack.back().index)});
+  }
 }
