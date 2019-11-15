@@ -1,6 +1,9 @@
+#pragma once
 #include <vector>
 #include <string_view>
 #include <string>
+
+extern const size_t kStringReserve;
 
 class AkinatorTree {
  public:
@@ -12,12 +15,20 @@ class AkinatorTree {
   };
 
   void ReadTree(const std::string& filename);
-  const std::string& GetString();
-  const std::vector<Node>& GetTree();;
+  void WriteTree(const std::string& filename) const;
+  void UpdateTree(size_t current_node,
+                  const std::string& property,
+                  const std::string& new_node);
+
+  const std::string& GetString() const;
+  const std::vector<Node>& GetTree() const;
+  inline bool IsLeaf(size_t node) const;
+  size_t LCA(size_t first_node, size_t second_node) const;
+  size_t NodeDepth(size_t node) const;
+ private:
+  void CreateRoot();
   void Reserve(std::FILE* file);
   void BuildTree(std::FILE* file);
-  inline bool IsLeaf(const Node& node) const;
- private:
   std::vector<Node> tree_;
   std::string nodes_strings_;
 };
