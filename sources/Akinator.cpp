@@ -57,9 +57,11 @@ void Akinator::TraversalMode() {
       tree_.GetTree().at(current_node).string.size(),
       tree_.GetTree().at(current_node).string.data());
     ReadLine();
-    if (input_buffer_ == "y") {
+
+    if (input_buffer_ == "y")
       return;
-    } else if (input_buffer_ == "n") {
+
+    if (input_buffer_ == "n") {
       std::printf("Please, write its correct attribute:");
       ReadLine();
       std::string property(input_buffer_);
@@ -67,10 +69,9 @@ void Akinator::TraversalMode() {
       ReadLine();
       tree_.UpdateTree(current_node, property, input_buffer_);
       return;
-    } else {
-      std::printf("Answer y or n\n");
-      continue;
     }
+
+    std::printf("Answer y or n\n");
   }
 }
 
@@ -120,37 +121,13 @@ void Akinator::ShowTreeMode() const {
   std::printf("Write filename for tree(*.png preferred):");
   ReadLine();
   input_buffer_ += ".dot";
-  FILE* dot_file = fopen((input_buffer_).c_str(), "w");
-  std::fprintf(dot_file,
-    "digraph akitree {\n"
-    "graph [nodesep=0.5];\n"
-    "node [fontname=\"Helvetica\", color=\"Lavender\", style=\"filled\"];\n");
-  for (size_t i = 0; i < tree_.GetTree().size(); ++i) {
-    std::fprintf(dot_file,
-      "node%zu [label=\"%.*s\"];\n", i,
-      tree_.GetTree().at(i).string.size(),tree_.GetTree().at(i).string.data());
-  }
-
-  for (size_t i = 0; i < tree_.GetTree().size(); ++i) {
-    if (!tree_.IsLeaf(i)) {
-      std::fprintf(dot_file,
-        "edge [color=\"Green\"];\n"
-        "node%zu -> node%zu;\n",
-        i, tree_.GetTree().at(i).left);
-      std::fprintf(dot_file,
-        "edge [color=\"Red\"];\n"
-        "node%zu -> node%zu;\n",
-        i, tree_.GetTree().at(i).right);
-    }
-  }
-  std::fwrite("}\n", 2, 1, dot_file);
-  fclose(dot_file);
+  DotFileFromAkinatorTree(tree_, input_buffer_);
 
   input_buffer_.resize(input_buffer_.size() - 4);
-  std::string formatted_str(strlen("dot  -Tpng -o ") +
+  std::string formatted_str(strlen("dot  -Tpng -o  &> /dev/null") +
                             input_buffer_.size() * 2 + 4, 0);
   std::sprintf(formatted_str.data(),
-               "dot %.*s.dot -Tpng -o %.*s",
+               "dot %.*s.dot -Tpng -o %.*s &> /dev/null",
                input_buffer_.size(), input_buffer_.c_str(),
                input_buffer_.size(), input_buffer_.c_str());
   system(formatted_str.c_str());

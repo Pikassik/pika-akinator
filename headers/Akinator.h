@@ -1,5 +1,6 @@
 #pragma once
 #include <AkinatorTree.h>
+#include <AkinatorTreeFuncs.h>
 #include <cstdio>
 #include <iostream>
 

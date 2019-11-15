@@ -12,5 +12,5 @@ add_executable(pika_akinator
                headers/Akinator.h
                sources/Akinator.cpp
                headers/AkinatorTree.h
-               sources/AkinatorTree.cpp)
+               sources/AkinatorTree.cpp headers/AkinatorTreeFuncs.h sources/AkinatorTreeFuncs.cpp)
 target_link_libraries(pika_akinator stdc++fs)
