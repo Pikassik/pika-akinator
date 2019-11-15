@@ -8,7 +8,7 @@ int main(int argc, char** argv) {
     return 0;
   }
   Akinator akinator;
-  akinator.ReadFile("../input");
+  akinator.ReadFile("../input2");
   akinator.InteractiveMode();
 //  akinator.WriteFile("../out");
   return 0;

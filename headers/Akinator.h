@@ -11,6 +11,7 @@ class Akinator {
  public:
   void ReadFile(const std::string& filename);
   void WriteFile(const std::string& filename) const;
+  void WriteTreeMode();
   void InteractiveMode();
   void TraversalMode();
   void DifferenceMode();
@@ -32,8 +33,8 @@ class Akinator {
   void CreateRoot();
   void ReadLine();
   void CollectProperties(size_t from,
-                        size_t to,
-                        std::vector<PropertyNode>& stack) const;
+                         size_t to,
+                         std::vector<PropertyNode>& stack) const;
   inline bool IsLeaf(const Node& node) const;
   std::vector<Node> tree_;
   std::string nodes_strings_;

@@ -3,6 +3,7 @@
 #include <cassert>
 #include <algorithm>
 #include <zconf.h>
+#include <filesystem>
 
 struct PropertyNode {
     size_t index;
@@ -16,7 +17,7 @@ static constexpr std::string_view kUnknown = "unknown";
 void Akinator::ReadFile(const std::string& filename) {
   tree_.resize(0);
   nodes_strings_.resize(0);
-  if (access(filename.c_str(), R_OK)) {
+  if (!std::filesystem::exists(filename)) {
     tree_.reserve(kNodesReserve);
     nodes_strings_.reserve(kStringReserve);
     CreateRoot();
@@ -38,18 +39,18 @@ void Akinator::WriteFile(const std::string& filename) const {
   stack.reserve(tree_.size() / 2 + 1);
 
   auto pop = [&file, &visited, &stack]() {
-    fwrite("}", 1, 1, file);
+    fputc('}', file);
     visited.at(stack.back()) = 1;
     stack.pop_back();
   };
 
   auto push = [this, &file, &stack](size_t index) {
     stack.push_back(index);
-    fwrite("{", 1, 1, file);
-    fwrite("\"", 1, 1, file);
+    fputc('{', file);
+    fputc('\"', file);
     fwrite(tree_.at(index).string.data(), 1,
            tree_.at(index).string.size(), file);
-    fwrite("\"", 1, 1, file);
+    fputc('\"', file);
   };
 
   push(0);
@@ -89,7 +90,7 @@ void Akinator::InteractiveMode() {
     } else if (input_buffer_ == "difference") {
       DifferenceMode();
     } else if (input_buffer_ == "write tree") {
-
+      WriteTreeMode();
     } else if (input_buffer_ == "show tree") {
 
     } else if (input_buffer_ == "exit") {
@@ -151,7 +152,7 @@ void Akinator::DifferenceMode() {
   size_t lca = LCA(first_node, second_node);
 
   std::vector<PropertyNode> properties_stack;
-  properties_stack.reserve(std::max(first_node,second_node));
+  properties_stack.reserve(tree_.size() / 2 + 1); // ne pravda
 
   CollectProperties(lca, 0, properties_stack);
   std::printf("Common properties: ");
@@ -207,8 +208,6 @@ void Akinator::BuildTree(std::FILE* file) {
       static_cast<std::string_view>(nodes_strings_).
       substr(begin_index, nodes_strings_.size() - begin_index);
   };
-
-
 
   while (((input_char = fgetc(file)) != '{')) {
     if (input_char == -1) {
@@ -354,4 +353,37 @@ void Akinator::CollectProperties(size_t from,
     stack.push_back({tree_.at(stack.back().index).parent,
                      is_true_property(stack.back().index)});
   }
+}
+
+void Akinator::WriteTreeMode() {
+  std::printf("Please, write filename for tree:");
+  ReadLine();
+  input_buffer_ += ".dot";
+  FILE* dot_file = fopen((input_buffer_).c_str(), "w");
+  std::fprintf(dot_file,
+    "digraph akitree {\n"
+    "graph [nodesep=0.5];\n"
+    "node [fontname=\"Helvetica\", color=\"Lavender\", style=\"filled\"];\n");
+  for (size_t i = 0; i < tree_.size(); ++i) {
+    std::fprintf(dot_file,
+      "node%zu [label=\"%.*s\"];\n",
+      i, tree_.at(i).string.size(), tree_.at(i).string.data());
+  }
+
+  for (size_t i = 0; i < tree_.size(); ++i) {
+    if (!IsLeaf(tree_.at(i))) {
+      std::fprintf(dot_file,
+        "edge [color=\"Green\"];\n"
+        "node%zu -> node%zu;\n",
+        i, tree_.at(i).left);
+      std::fprintf(dot_file,
+        "edge [color=\"Red\"];\n"
+        "node%zu -> node%zu;\n",
+        i, tree_.at(i).right);
+    }
+  }
+  std::fwrite("}\n", 2, 1, dot_file);
+  fclose(dot_file);
+  system("dot tmp.dot -Tpng -o tmp.png");
+  system("pix tmp.png &> /dev/null");
 }
