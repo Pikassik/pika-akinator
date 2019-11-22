@@ -11,7 +11,7 @@ void DotFileFromAkinatorTree(const AkinatorTree& tree,
   for (size_t i = 0; i < tree.GetTree().size(); ++i) {
     std::fprintf(dot_file,
       "node%zu [label=\"%.*s\"];\n", i,
-      tree.GetTree().at(i).string.size(),tree.GetTree().at(i).string.data());
+      tree.NodeToString(i).size(), tree.NodeToString(i).data());
   }
 
   for (size_t i = 0; i < tree.GetTree().size(); ++i) {

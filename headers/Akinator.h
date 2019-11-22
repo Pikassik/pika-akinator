@@ -16,6 +16,8 @@ class Akinator {
   void WriteTreeMode() const;
   void ShowTreeMode() const;
  private:
+  void PrintFormatted(const char* format, const std::string_view& string) const;
+  void PrintString(const std::string_view& string) const;
   void ReadLine() const;
   std::vector<AkinatorTree::Node>::const_iterator ReadAndFindCharacter() const;
   void CollectProperties(size_t from, size_t to,

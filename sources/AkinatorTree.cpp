@@ -39,9 +39,8 @@ void AkinatorTree::BuildTree(std::FILE* file) {
     size_t begin_index = nodes_strings_.size();
     while ((input_char = fgetc(file)) != '"')
       nodes_strings_.push_back(input_char);
-    tree_.at(traversal_stack.back().index).string =
-      static_cast<std::string_view>(nodes_strings_).
-      substr(begin_index, nodes_strings_.size() - begin_index);
+    tree_.at(traversal_stack.back().index).left_bound =  begin_index;
+    tree_.at(traversal_stack.back().index).right_bound = nodes_strings_.size();
   };
 
   while (((input_char = fgetc(file)) != '{')) {
@@ -66,7 +65,7 @@ void AkinatorTree::BuildTree(std::FILE* file) {
       }
 
       traversal_stack.push_back({tree_.size(), false});
-      tree_.push_back({"", 0, 0,
+      tree_.push_back({0, 0, 0, 0,
                        traversal_stack.at(traversal_stack.size() - 2).index});
 
       read_string();
@@ -83,8 +82,7 @@ void AkinatorTree::BuildTree(std::FILE* file) {
 
 void AkinatorTree::CreateRoot() {
   nodes_strings_ += kUnknown;
-  tree_.push_back({std::string_view(nodes_strings_).
-                   substr(0, kUnknown.size()),
+  tree_.push_back({0, kUnknown.size(),
                    0, 0});
 }
 
@@ -106,8 +104,8 @@ void AkinatorTree::WriteTree(const std::string& filename) const {
     stack.push_back(index);
     fputc('{', file);
     fputc('\"', file);
-    fwrite(tree_.at(index).string.data(), 1,
-           tree_.at(index).string.size(), file);
+    fwrite(NodeToString(index).data(), 1,
+           NodeToString(index).size(), file);
     fputc('\"', file);
   };
 
@@ -131,6 +129,12 @@ void AkinatorTree::WriteTree(const std::string& filename) const {
     }
   }
   fclose(file);
+}
+
+std::string_view AkinatorTree::NodeToString(size_t node) const {
+    return static_cast<std::string_view>(nodes_strings_).
+      substr(tree_.at(node).left_bound,
+             tree_.at(node).right_bound - tree_.at(node).left_bound);
 }
 
 const std::string& AkinatorTree::GetString() const {
@@ -176,15 +180,13 @@ void AkinatorTree::UpdateTree(size_t current_node,
     tree_.at(tree_.at(current_node).parent).right) = tree_.size();
 
 
-  tree_.push_back({static_cast<std::string_view>(nodes_strings_).
-                   substr(begin, property.size() + 1),
+  tree_.push_back({begin , begin + property.size() + 1,
                    tree_.size() + 1, current_node,
                    tree_.at(current_node).parent});
   tree_.at(current_node).parent = tree_.size() - 1;
   begin = nodes_strings_.size();
   nodes_strings_ += new_node;
-  tree_.push_back({static_cast<std::string_view>(nodes_strings_).
-                   substr(begin, new_node.size()),
+  tree_.push_back({begin, begin + new_node.size(),
                    0, 0,
                    tree_.size() - 1});
   if (tree_.size() == 3) {
@@ -226,4 +228,3 @@ size_t AkinatorTree::NodeDepth(size_t node) const {
   }
   return depth;
 }
-

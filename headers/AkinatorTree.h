@@ -8,7 +8,8 @@ extern const size_t kStringReserve;
 class AkinatorTree {
  public:
   struct Node {
-    std::string_view string;
+    size_t left_bound = 0;
+    size_t right_bound = 0;
     size_t left   = 0; // true  subtree
     size_t right  = 0; // false subtree
     size_t parent = 0;
@@ -19,7 +20,7 @@ class AkinatorTree {
   void UpdateTree(size_t current_node,
                   const std::string& property,
                   const std::string& new_node);
-
+  std::string_view NodeToString(size_t node) const;
   const std::string& GetString() const;
   const std::vector<Node>& GetTree() const;
   inline bool IsLeaf(size_t node) const;

@@ -1,6 +1,7 @@
 #include <Akinator.h>
 #include <cstring>
 #include <cassert>
+#include <cstdlib>
 
 struct PropertyNode {
     size_t index;
@@ -36,32 +37,47 @@ void Akinator::InteractiveMode() {
 }
 
 void Akinator::TraversalMode() {
+  std::vector<size_t> not_stated_stack;
+  not_stated_stack.reserve(tree_.GetTree().size() / 2 + 1);
   size_t current_node = 0;
   while (true) {
     if (!tree_.IsLeaf(current_node)) {
-      std::printf("%.*s? (y or n):",
-        tree_.GetTree().at(current_node).string.size(),
-        tree_.GetTree().at(current_node).string.data());
+      PrintFormatted("%.*s:", tree_.NodeToString(current_node));
       ReadLine();
+
+      if (input_buffer_ == "idk") {
+        input_buffer_ = rand() % 2 ? "ns y" : "ns n";
+      }
+
       if (input_buffer_ == "y") {
         current_node = tree_.GetTree().at(current_node).left;
       } else if (input_buffer_ == "n") {
         current_node = tree_.GetTree().at(current_node).right;
-      } else {
-        std::printf("Answer y or n");
+      } else if (input_buffer_ == "ns y") {
+        not_stated_stack.push_back(tree_.GetTree().at(current_node).right);
+        current_node = tree_.GetTree().at(current_node).left;
+      } else if (input_buffer_ == "ns n") {
+        not_stated_stack.push_back(tree_.GetTree().at(current_node).left);
+        current_node = tree_.GetTree().at(current_node).right;
+      }  else {
+        printf("Answer y (yes) or n (no) or "
+               "ns y (not sure yes) or ns n (not sure no)\n");
       }
       continue;
     }
 
-    std::printf("Is it %.*s? (y or n):",
-      tree_.GetTree().at(current_node).string.size(),
-      tree_.GetTree().at(current_node).string.data());
+    PrintFormatted("Is it %.*s?:", tree_.NodeToString(current_node));
     ReadLine();
 
     if (input_buffer_ == "y")
       return;
 
     if (input_buffer_ == "n") {
+      if (!not_stated_stack.empty()) {
+        current_node = not_stated_stack.back();
+        not_stated_stack.pop_back();
+        continue;
+      }
       std::printf("Please, write its correct attribute:");
       ReadLine();
       std::string property(input_buffer_);
@@ -99,15 +115,17 @@ void Akinator::DifferenceMode() const {
   properties_stack.reserve(tree_.GetTree().size() / 2 + 1);
 
   CollectProperties(lca, 0, properties_stack);
-  std::printf("Common properties: ");
+  PrintString("Common properties: ");
   PrintProperties(properties_stack);
 
   CollectProperties(first_node, lca, properties_stack);
-  std::printf("First characters' unique properties: ");
+  PrintFormatted("%.*s's unique properties: ",
+                 tree_.NodeToString(first_node));
   PrintProperties(properties_stack);
 
   CollectProperties(second_node, lca, properties_stack);
-  std::printf("Second characters' unique properties: ");
+  PrintFormatted("%.*s's unique properties: ",
+                 tree_.NodeToString(second_node));
   PrintProperties(properties_stack);
 }
 
@@ -139,6 +157,32 @@ void Akinator::ShowTreeMode() const {
   system(formatted_str.c_str());
 }
 
+void Akinator::PrintFormatted(const char* format,
+                              const std::string_view& string) const {
+    printf(format, string.size(), string.data());
+    std::fflush(stdout);
+    std::string buffer_fin(strlen("echo \"\" | espeak -s 80") +
+                           strlen(format) + string.size(), 0);
+    std::string buffer_not_fin(strlen(format) + string.size(), 0);
+
+    std::sprintf(buffer_not_fin.data(), format,
+                 string.size(), string.data());
+    std::sprintf(buffer_fin.data(), "echo \"%.*s\" | espeak -s 80",
+                 buffer_not_fin.size() - 4, buffer_not_fin.c_str());
+    system(buffer_fin.data());
+}
+
+void Akinator::PrintString(const std::string_view& string) const {
+    printf("%.*s", string.size(), string.data());
+    std::fflush(stdout);
+    std::string buffer_fin(strlen("echo \"\" | espeak -s 120") +
+                                  string.size(), 0);
+    std::sprintf(buffer_fin.data(), "echo \"%.*s\" | espeak -s 120",
+                 string.size(), string.data());
+    system(buffer_fin.c_str());
+
+}
+
 void Akinator::ReadLine() const {
   std::fflush(stdout);
   while (std::isspace(std::cin.peek())) std::cin.get();
@@ -149,7 +193,7 @@ std::vector<AkinatorTree::Node>::const_iterator
 Akinator::ReadAndFindCharacter() const {
   ReadLine();
   for (size_t i = 0; i < tree_.GetString().size(); ++i) {
-    if (std::string_view(input_buffer_) == tree_.GetTree().at(i).string &&
+    if (std::string_view(input_buffer_) == tree_.NodeToString(i) &&
         tree_.IsLeaf(i)) {
       return  tree_.GetTree().cbegin() + i;
     }
@@ -174,15 +218,18 @@ void Akinator::CollectProperties(size_t from, size_t to,
 
 void
 Akinator::PrintProperties(std::vector<PropertyNode>& stack) const {
+  input_buffer_.clear();
   while (!stack.empty()) {
     if (!stack.back().property)
-      std::printf("NOT ");
-    assert(!tree_.GetTree().at(stack.back().index).string.empty());
-    std::printf("%.*s; ",
-      tree_.GetTree().at(stack.back().index).string.size() - 1,
-      tree_.GetTree().at(stack.back().index).string.data());
+      input_buffer_ += "NOT ";
+    assert(!tree_.NodeToString(stack.back().index).empty());
+
+    input_buffer_ += std::string_view(tree_.NodeToString(stack.back().index)).
+                   substr(0, tree_.NodeToString(stack.back().index).size() - 1);
+    input_buffer_.push_back(' ');
     stack.pop_back();
   }
+  PrintString(input_buffer_);
   std::putchar('\n');
   std::fflush(stdout);
 }
